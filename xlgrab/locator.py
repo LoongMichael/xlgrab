@@ -10,6 +10,8 @@ from typing import Optional, Tuple, Union, Dict
 import pandas as pd
 from .reader import get_sheet
 from .utils import a1_to_row_col, col_to_index
+import numpy as np 
+import re
 
 
 # ============================================================================
@@ -195,27 +197,30 @@ def _locate_rows_by_keywords_internal(df: pd.DataFrame, params: dict) -> Optiona
         if not all([start_col, start_keyword, end_col, end_keyword]):
             return None
         
-        start_row = _find_keyword_row_internal(
-            df,
-            start_col,
-            start_keyword,
-            occurrence=occurrence_start,
-            contains=contains,
-            regex=regex,
-            case_sensitive=case_sensitive,
-        )  # [EDIT] 传递新增参数
+        # 使用 find_idx 在指定列中查找开始关键词的行
+        col_1based = _normalize_column(start_col)
+        if col_1based is None:
+            return None
+        col_idx = col_1based - 1
+        if col_idx >= len(df.columns):
+            return None
+        series_start = df.iloc[:, col_idx]
+        mode = 'regex' if regex else ('contains' if contains else 'exact')
+        idx_start = find_idx(series_start, q=(start_keyword if mode == 'regex' else str(start_keyword)), mode=mode, na=False, flags=0, nth=occurrence_start)
+        start_row = int(idx_start) + 1 if isinstance(idx_start, int) and idx_start != -1 else None
         if start_row is None:
             return None
         
-        end_row = _find_keyword_row_internal(
-            df,
-            end_col,
-            end_keyword,
-            occurrence=occurrence_end,
-            contains=contains,
-            regex=regex,
-            case_sensitive=case_sensitive,
-        )  # [EDIT] 传递新增参数
+        # 使用 find_idx 在指定列中查找结束关键词的行
+        end_col_1based = _normalize_column(end_col)
+        if end_col_1based is None:
+            return None
+        end_col_idx = end_col_1based - 1
+        if end_col_idx >= len(df.columns):
+            return None
+        series_end = df.iloc[:, end_col_idx]
+        idx_end = find_idx(series_end, q=(end_keyword if mode == 'regex' else str(end_keyword)), mode=mode, na=False, flags=0, nth=occurrence_end)
+        end_row = int(idx_end) + 1 if isinstance(idx_end, int) and idx_end != -1 else None
         if end_row is None:
             return None
         
@@ -244,15 +249,17 @@ def _locate_rows_by_start_keyword_internal(df: pd.DataFrame, params: dict) -> Op
         if not start_col or not start_keyword:
             return None
         
-        start_row = _find_keyword_row_internal(
-            df,
-            start_col,
-            start_keyword,
-            occurrence=occurrence,
-            contains=contains,
-            regex=regex,
-            case_sensitive=case_sensitive,
-        )  # [EDIT] 传递新增参数
+        # 使用 find_idx 在指定列中查找开始关键词的行
+        col_1based = _normalize_column(start_col)
+        if col_1based is None:
+            return None
+        col_idx = col_1based - 1
+        if col_idx >= len(df.columns):
+            return None
+        series_start = df.iloc[:, col_idx]
+        mode = 'regex' if regex else ('contains' if contains else 'exact')
+        idx_start = find_idx(series_start, q=(start_keyword if mode == 'regex' else str(start_keyword)), mode=mode, na=False, flags=0, nth=occurrence)
+        start_row = int(idx_start) + 1 if isinstance(idx_start, int) and idx_start != -1 else None
         if start_row is None:
             return None
         
@@ -305,27 +312,22 @@ def _locate_columns_by_keywords_internal(df: pd.DataFrame, params: dict) -> Opti
         if not all([header_row, start_keyword, end_keyword]):
             return None
         
-        start_col = _find_keyword_column_internal(
-            df,
-            header_row,
-            start_keyword,
-            occurrence=occurrence_start,
-            contains=contains,
-            regex=regex,
-            case_sensitive=case_sensitive,
-        )  # [EDIT]
+        # 使用 find_idx 在表头行中查找开始关键词的列
+        row_1based = _normalize_row(header_row)
+        if row_1based is None:
+            return None
+        row_idx = row_1based - 1
+        if row_idx < 0 or row_idx >= df.shape[0]:
+            return None
+        row_series = df.iloc[row_idx, :]
+        mode = 'regex' if regex else ('contains' if contains else 'exact')
+        idx_start = find_idx(row_series, q=(start_keyword if mode == 'regex' else str(start_keyword)), mode=mode, na=False, flags=0, nth=occurrence_start)
+        start_col = int(idx_start) + 1 if isinstance(idx_start, int) and idx_start != -1 else None
         if start_col is None:
             return None
         
-        end_col = _find_keyword_column_internal(
-            df,
-            header_row,
-            end_keyword,
-            occurrence=occurrence_end,
-            contains=contains,
-            regex=regex,
-            case_sensitive=case_sensitive,
-        )  # [EDIT]
+        idx_end = find_idx(row_series, q=(end_keyword if mode == 'regex' else str(end_keyword)), mode=mode, na=False, flags=0, nth=occurrence_end)
+        end_col = int(idx_end) + 1 if isinstance(idx_end, int) and idx_end != -1 else None
         if end_col is None:
             return None
         
@@ -353,15 +355,17 @@ def _locate_columns_by_start_keyword_internal(df: pd.DataFrame, params: dict) ->
         if not header_row or not start_keyword:
             return None
         
-        start_col = _find_keyword_column_internal(
-            df,
-            header_row,
-            start_keyword,
-            occurrence=occurrence,
-            contains=contains,
-            regex=regex,
-            case_sensitive=case_sensitive,
-        )  # [EDIT]
+        # 使用 find_idx 在表头行中查找开始关键词的列
+        row_1based = _normalize_row(header_row)
+        if row_1based is None:
+            return None
+        row_idx = row_1based - 1
+        if row_idx < 0 or row_idx >= df.shape[0]:
+            return None
+        row_series = df.iloc[row_idx, :]
+        mode = 'regex' if regex else ('contains' if contains else 'exact')
+        idx_start = find_idx(row_series, q=(start_keyword if mode == 'regex' else str(start_keyword)), mode=mode, na=False, flags=0, nth=occurrence)
+        start_col = int(idx_start) + 1 if isinstance(idx_start, int) and idx_start != -1 else None
         if start_col is None:
             return None
         
@@ -558,97 +562,65 @@ def _apply_region_offsets(region: Tuple[int, int, int, int], offsets: dict, df: 
         return (sr, er, sc, ec)
     except Exception:
         return None
-def _find_keyword_row_internal(df: pd.DataFrame, column: Union[str, int], text: str, 
-                              occurrence: int = 1, contains: bool = False,
-                              regex: bool = False, case_sensitive: bool = True) -> Optional[int]:
-    """内部函数：在指定列中查找关键词的行号
 
-    [EDIT] 新增参数：regex、case_sensitive，用于控制 contains 行为与大小写
+
+def find_idx(
+    s: pd.Series,
+    q: Union[str, re.Pattern],
+    mode: str = "exact",
+    na: bool = False,
+    flags: int = 0,
+    nth: Optional[int] = 1,   
+):
     """
-    try:
-        col_1based = _normalize_column(column)
-        if col_1based is None:
-            return None
-        col_idx = col_1based - 1
-        if col_idx >= len(df.columns):
-            return None
-            
-        series = df.iloc[:, col_idx].astype(str)
+    返回命中位置：
+      - 若 nth 为 None：返回所有命中位置的 ndarray
+      - 若 nth 为正整数：返回第 n 次命中的位置（int），未命中返回 -1
 
-        # [EDIT] 大小写控制：非区分大小写时统一小写
-        if not case_sensitive:
-            series = series.str.lower()
-            text_cmp = text.lower()
-        else:
-            text_cmp = text
+    mode:
+      - 'exact'    : 等值匹配（默认 & 最快）。基于底层 ndarray 等值比较，加速且省内存。
+      - 'contains' : 字面子串匹配（regex=False）。避免正则元字符带来的歧义。
+      - 'regex'    : 正则匹配（可用 flags 传 re.IGNORECASE 等）。当 q 为 Pattern 时通常以其自带 flags 为准。
 
-        if contains:
-            # [EDIT] contains 默认 regex=False 更安全，可由参数控制
-            mask = series.str.contains(text_cmp, na=False, regex=regex)
-        else:
-            mask = series.str.strip() == text_cmp
-            
-        rows = mask[mask].index.tolist()
-        
-        if not rows:
-            return None
+    参数：
+      - s: 待搜索的 Series。
+      - q: 查询（str 或 re.Pattern）。
+      - mode: 匹配模式，见上。
+      - na: 仅用于 contains/regex，缺失值的布尔值（传入 .str.contains 的 na）。
+      - flags: 仅用于 regex，正则标志位。
+      - nth: 选择第几次命中。None 返回全部；>0 从头数；<0 从尾数（-1 为最后一次）。
 
-        if occurrence == -1:
-            return rows[-1] + 1
-
-        if len(rows) >= occurrence:
-            return rows[occurrence - 1] + 1
-        
-        return None
-    except Exception:
-        return None
-
-
-def _find_keyword_column_internal(df: pd.DataFrame, row: Union[int, str], text: str, 
-                                 occurrence: int = 1, contains: bool = False,
-                                 regex: bool = False, case_sensitive: bool = True) -> Optional[int]:
-    """内部函数：在指定行中查找关键词的列号
-
-    [EDIT] 新增参数：regex、case_sensitive，用于控制 contains 行为与大小写
+    说明：
+      - 若未命中且 nth 非 None，返回 -1。
+      - 输入无效模式会抛 ValueError。
     """
-    try:
-        row_1based = _normalize_row(row)
-        if row_1based is None:
-            return None
-        row_idx = row_1based - 1
-        if row_idx < 0 or row_idx >= df.shape[0]:
-            return None
-            
-        row_values = df.iloc[row_idx, :].astype(str)
-
-        # [EDIT] 大小写控制
-        if not case_sensitive:
-            row_values = row_values.str.lower()
-            text_cmp = text.lower()
+    
+    # exact：使用底层 ndarray 做等值比较，性能最优
+    if mode == "exact":
+        arr = s.to_numpy(copy=False)
+        if pd.isna(q):
+            # 查找缺失值位置（覆盖 None/np.nan/pd.NA 等）
+            idx = np.flatnonzero(pd.isna(arr))
         else:
-            text_cmp = text
+            idx = np.flatnonzero(arr == q)
+    elif mode == "contains":
+        # contains：字面子串匹配（regex=False），避免正则引擎开销与语义歧义
+        arr = s.astype("string")
+        mask = arr.str.contains(str(q), regex=False, na=na)
+        idx = np.flatnonzero(mask.to_numpy())
+    elif mode == "regex":
+        # regex：正则匹配，可通过 flags 控制大小写等
+        arr = s.astype("string")
+        mask = arr.str.contains(q, regex=True, na=na, flags=flags)
+        idx = np.flatnonzero(mask.to_numpy())
+    else:
+        raise ValueError("mode must be 'exact' | 'contains' | 'regex'")
 
-        row_values = row_values.str.strip()
+    # 命中次序选择：None → 全部；>0 → 第 n 个；<0 → 从尾部计数
+    if nth is None:
+        return idx
+    if nth == 0:
+        raise ValueError("nth must be a non-zero integer or None")
 
-        if contains:
-            mask = row_values.str.contains(text_cmp, na=False, regex=regex)
-        else:
-            mask = row_values == text_cmp
-            
-        cols = mask[mask].index.tolist()
-        
-        if not cols:
-            return None
-        
-        if occurrence == -1:
-            return cols[-1] + 1
-        
-        if len(cols) >= occurrence:
-            return cols[occurrence - 1] + 1
-        
-        return None
-    except Exception:
-        return None
-
-
- 
+    k = nth - 1 if nth > 0 else idx.size + nth
+    return int(idx[k]) if 0 <= k < idx.size else -1
