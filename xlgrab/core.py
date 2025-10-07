@@ -251,11 +251,10 @@ class XlDataFrame(_OriginalDataFrame):
           - 字符串：
             * "A2"         → 单元格（同时指定行与列）
             * "F"/"AA"     → 列（Excel 列字母）
-            * "end"        → 末端（行或列，依据位置推断）
           - 整数：按 Excel 习惯 1 基行/列索引（内部转 0 基）
           - 元组/列表：
             * ("cell", "A2")
-            * ("row", 10 | "end")
+            * ("row", 10)
             * ("col", "F" | 6)
             * ("find-row", target, q, {mode, nth, na, flags})
             * ("find-col", target, q, {mode, nth, na, flags})
@@ -264,6 +263,13 @@ class XlDataFrame(_OriginalDataFrame):
           - start/end 可一次性给端点；
           - start_row/start_col/end_row/end_col 可覆盖对应维度；
           - 未指定的边界使用默认：start_row=1, start_col=1, end_row=末行, end_col=末列。
+            因此通常无需显式写 'end'：例如仅给出 `start='B2'` 即表示从 B2 一直到表尾；
+            仅给 `start_row` 或 `start_col` 也分别表示到末行或末列。
+
+        例：
+          df.select_range(start='B2')                       # 从 B2 到末行末列
+          df.select_range(start_row=('row', 3))             # 第 3 行到末行，列为全列
+          df.select_range(start_col=('col', 'C'))           # 第 C 列到末列，行为全行
         """
 
         num_rows = len(self)

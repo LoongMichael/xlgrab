@@ -11,16 +11,72 @@
 
 ## 安装
 
+### 1) 直接从 GitHub 安装（推荐）
+
+无需克隆代码，使用 pip 直接从仓库安装：
+
 ```bash
+pip install git+https://github.com/LoongMichael/xlgrab.git
+```
+
+如需升级到仓库的最新提交：
+
+```bash
+pip install --upgrade --no-cache-dir git+https://github.com/LoongMichael/xlgrab.git
+```
+
+使用 SSH（你已配置 GitHub SSH key）：
+
+```bash
+pip install git+ssh://git@github.com/LoongMichael/xlgrab.git
+```
+
+固定到某个提交/分支/标签（示例为分支 main 与某个提交）：
+
+```bash
+pip install git+https://github.com/LoongMichael/xlgrab.git@main
+pip install git+https://github.com/LoongMichael/xlgrab.git@<commit_sha>
+```
+
+### 2) 克隆源码本地开发安装（editable）
+
+```bash
+git clone https://github.com/LoongMichael/xlgrab.git
+cd xlgrab
 pip install -e .
 ```
 
-或直接使用源码：
+如需安装测试依赖，请使用 `requirements.txt`（仅当你打算本地运行用例）：
 
 ```bash
-git clone <repository-url>
-cd xllocator
-pip install -e .
+pip install -r requirements.txt
+```
+
+### 3) 运行环境与依赖
+
+- Python: >= 3.7（参考 `setup.py` 的 `python_requires`）
+- 运行依赖：
+  - pandas >= 1.3.0
+  - numpy >= 1.20.0
+  - openpyxl >= 3.0.0（仅在使用 `excel_range` 时需要）
+
+可使用镜像源（示例以中国大陆环境）：
+
+```bash
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple git+https://github.com/LoongMichael/xlgrab.git
+```
+
+### 4) 安装后快速验证
+
+```python
+import pandas as pd
+import xlgrab  # 导入后会为 pandas 注册扩展方法
+
+df = pd.DataFrame({"name": ["Alice", "Bob"], "age": [25, 30]})
+
+# 若安装成功，下行方法应可调用且无 AttributeError
+_ = df.find_idx('name', 'Alice', mode='exact', axis='column', nth=1)
+print('xlgrab OK')
 ```
 
 ## 快速开始
@@ -77,23 +133,22 @@ df.apply_header(['客户', '金额', '日期'])  # 直接用给定列表命名�
 - 分别偏移：`offset_start_row/end_row/start_col/end_col`
 - `clip_to_bounds=True` 自动裁剪；否则越界报错
 
-### select_range(start/end 或 start_row/col/end_row/col, clip=True, ...offsets)
+### select_range(start 或 start_row/col/end_row/col, clip=True, ...offsets)
 
 `select_range` 提供一个表达能力强、贴近 Excel 与查找语义的“区间 DSL”。它将多种端点描述转换为最终 `iloc` 切片，并在末尾统一复用 `offset_range` 执行偏移与边界处理。
 
 - 支持的端点参数（四个边界可独立提供，缺省时有默认值）：
-  - `start`, `end`: 一次性指定起止端点（可为单元格、仅行或仅列、或 find 规范）
+  - `start`: 一次性指定起点（可为单元格、仅行或仅列、或 find 规范）
   - `start_row`, `end_row`, `start_col`, `end_col`: 覆盖对应维度
 
 - 端点 DSL 说明（均区分“行语境”与“列语境”）：
   - 字符串
     - 'A2'：单元格（同时指定行与列）
     - 'F' / 'AA'：列（列语境）
-    - 'end'：末端（行或列，依据语境推断）
   - 整数（Excel 习惯的 1 基）：例如 3 表示第 3 行/列
   - 元组/列表
     - ('cell', 'A2')：显式单元格
-    - ('row', 10 | 'end')：显式行
+    - ('row', 10)：显式行
     - ('col', 'F' | 6)：显式列
     - ('find-row', target, q, {mode, nth, na, flags})：按列搜索“行边界”
     - ('find-col', target, q, {mode, nth, na, flags})：按行搜索“列边界”
@@ -119,8 +174,8 @@ df.apply_header(['客户', '金额', '日期'])  # 直接用给定列表命名�
 # 1) 起止用单元格
 df.select_range(start='A2', end=('cell','C5'))
 
-# 2) 起始用行、终止到表尾；列为默认
-df.select_range(start_row=('row', 10), end_row='end')
+# 2) 起始用行，列为默认（终止默认到底）
+df.select_range(start_row=('row', 10))
 
 # 3) 列用 Excel 列字母，行用整数（1 基）
 df.select_range(start_col='B', end_col='F', start_row=2, end_row=20)
@@ -174,3 +229,14 @@ python -m unittest discover -s tests -p "test_*.py" -v
 ## 许可证
 
 MIT License
+
+## 文档
+
+更多使用说明与示例请查看 `docs/manual/`：
+
+- `docs/manual/index.md`：文档索引
+- `docs/manual/find_idx.md`：`find_idx` 用法与示例
+- `docs/manual/excel_range.md`：`excel_range` 用法与示例
+- `docs/manual/offset_range.md`：`offset_range` 用法与示例
+- `docs/manual/select_range.md`：`select_range` 用法与示例
+- `docs/manual/apply_header.md`：`apply_header` 用法与示例
