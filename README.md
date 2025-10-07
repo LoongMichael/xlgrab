@@ -1,239 +1,176 @@
-# xlgrab - 极简Excel数据提取库
+## xlgrab
 
-> 专注简洁，专注实用 - 让Excel数据提取变得简单
+一个基于 Facade 模式的 pandas 增强库。导入后，DataFrame/Series 将自动获得一组易用、贴近 Excel 思维的辅助方法，专注于“快速定位与提取数据区域”。
 
-## 🎯 设计理念
+### 亮点
+- **一行导入，方法即刻可用**：`import xlgrab` 后，`pd.DataFrame`/`pd.Series` 直接获得增强方法
+- **查找定位**：`find_idx` 支持 exact/contains/regex、nth 指定、返回单个或全部命中
+- **Excel 区间**：`excel_range('B2:D6', ...)`，可一次传多个区间并纵向合并
+- **偏移选择**：`offset_range`/`select_range` 支持统一/分别偏移与边界裁剪
+- **表头处理**：`apply_header` 与 pandas read_csv 语义一致（支持 int、list[int]、list[str]/Series、DataFrame）
 
-- **极简API** - 用户只需关心"提取什么数据"
-- **函数式设计** - 纯函数，无状态，易测试
-- **单一职责** - 每个函数只做一件事
-- **渐进式复杂度** - 从简单到复杂，按需使用
-
-## 🚀 快速开始
-
-### 安装
+## 安装
 
 ```bash
-pip install xlgrab
+pip install -e .
 ```
 
-### 基本用法
+或直接使用源码：
 
-```python
-import xlgrab
-
-# 1. 简单区域提取
-result = xlgrab.extract_simple("data.xlsx", "Sheet1", "A1:C10")
-print(result.data)
-
-# 2. 带表头提取
-result = xlgrab.extract_with_header("data.xlsx", "Sheet1", "A1:C1", "A2:C10")
-print(result.columns)  # 列名
-print(result.data)     # 数据
-
-# 3. 自动表格提取
-result = xlgrab.extract_table("data.xlsx", "Sheet1", "A1")
-df = result.to_dataframe()  # 转换为pandas DataFrame
+```bash
+git clone <repository-url>
+cd xllocator
+pip install -e .
 ```
 
-## 📚 API 参考
-
-### 核心函数
-
-#### `extract_simple(file_path, sheet, area)`
-提取固定区域数据
+## 快速开始
 
 ```python
-# 提取A1:C10区域
-result = xlgrab.extract_simple("data.xlsx", "Sheet1", "A1:C10")
+import pandas as pd
+import xlgrab  # 导入后自动为 pandas 注册扩展方法
+
+df = pd.DataFrame({
+    'name': ['Alice', 'Bob', 'Charlie', 'David', 'Eve'],
+    'age': [25, 30, 35, 28, 32],
+    'salary': [50000, 60000, 70000, 55000, 65000],
+    'dept': ['IT', 'HR', 'IT', 'Finance', 'Marketing']
+})
+
+# 查找位置（按列）
+df.find_idx('name', 'Alice', mode='exact', axis='column', nth=1)     # 0
+df.find_idx('dept', 'IT', mode='exact', axis='column', nth=None)      # array([0, 2])
+
+# 查找位置（按行）
+df.find_idx(0, '^A', mode='regex', axis='row', nth=1)                 # 0
+
+# Excel 区间到 DataFrame，支持多区域合并
+df.excel_range('B2:D4', 'F10:H12', header=True)
+
+# 偏移选择（以 1 基行列坐标）
+df.offset_range(1, 5, 2, 6, offset_rows=1, offset_cols=-1, clip_to_bounds=True)
+
+# DSL 选择 + 偏移（先解析，再调用 offset_range 执行切片）
+df.select_range(start='A2', end=('cell','C5'), offset_rows=1, offset_cols=0, clip=True)
+
+# 表头设置（read_csv 语义）
+df.apply_header(True)            # True 等价 0 行作为表头
+df.apply_header(0)               # 第 0 行为表头
+df.apply_header([0, 1])          # 多行表头；header_join=None 则生成 MultiIndex
+df.apply_header(['客户', '金额', '日期'])  # 直接用给定列表命名（自动规范化、递增去重）
 ```
 
-#### `extract_with_header(file_path, sheet, header_area, data_area)`
-提取带表头的数据
+## 核心 API
 
+### find_idx(target, q, mode='exact', na=False, nth=1, axis='column')
+- **target**: 列名或行索引
+- **mode**: exact | contains | regex
+- **nth**: None 返回全部；>0 第 n 次；<0 倒数第 n 次
+- **axis**: 'column' | 'row'
+
+### excel_range(*ranges, header=True, index_col=None)
+- 支持一次传入多个 Excel 区间字符串，自动按行合并
+- `header=True` 将首行作为列名；`index_col` 支持列名或位置
+- 使用 `openpyxl.utils.coordinate_to_tuple` 解析坐标
+
+### offset_range(start_row, end_row, start_col, end_col, ...)
+- 统一偏移：`offset_rows`、`offset_cols`
+- 分别偏移：`offset_start_row/end_row/start_col/end_col`
+- `clip_to_bounds=True` 自动裁剪；否则越界报错
+
+### select_range(start/end 或 start_row/col/end_row/col, clip=True, ...offsets)
+
+`select_range` 提供一个表达能力强、贴近 Excel 与查找语义的“区间 DSL”。它将多种端点描述转换为最终 `iloc` 切片，并在末尾统一复用 `offset_range` 执行偏移与边界处理。
+
+- 支持的端点参数（四个边界可独立提供，缺省时有默认值）：
+  - `start`, `end`: 一次性指定起止端点（可为单元格、仅行或仅列、或 find 规范）
+  - `start_row`, `end_row`, `start_col`, `end_col`: 覆盖对应维度
+
+- 端点 DSL 说明（均区分“行语境”与“列语境”）：
+  - 字符串
+    - 'A2'：单元格（同时指定行与列）
+    - 'F' / 'AA'：列（列语境）
+    - 'end'：末端（行或列，依据语境推断）
+  - 整数（Excel 习惯的 1 基）：例如 3 表示第 3 行/列
+  - 元组/列表
+    - ('cell', 'A2')：显式单元格
+    - ('row', 10 | 'end')：显式行
+    - ('col', 'F' | 6)：显式列
+    - ('find-row', target, q, {mode, nth, na, flags})：按列搜索“行边界”
+    - ('find-col', target, q, {mode, nth, na, flags})：按行搜索“列边界”
+
+- find 规范与 `find_idx` 一致：
+  - `mode`: exact | contains | regex
+  - `nth`: None 返回全部；>0 第 n 次；<0 倒数第 n 次
+  - `na`, `flags`：传递给底层 `str.contains`/正则
+  - `target`：在“行边界”场景下是列名/索引；“列边界”场景下是行索引/标签
+
+- 边界默认值与顺序规范：
+  - 未指定时默认 `start_row=1`, `start_col=1`, `end_row=末行`, `end_col=末列`
+  - 起止顺序会自动校正（若 start>end 会交换）
+
+- 偏移与裁剪：
+  - 统一偏移：`offset_rows`, `offset_cols`
+  - 分别偏移：`offset_start_row`, `offset_end_row`, `offset_start_col`, `offset_end_col`
+  - `clip=True` 将越界自动裁剪；`clip=False` 越界将抛出错误
+  - 实际偏移与切片由 `offset_range` 执行，保证行为一致
+
+- 常见用法示例：
 ```python
-# 表头在A1:C1，数据在A2:C10
-result = xlgrab.extract_with_header("data.xlsx", "Sheet1", "A1:C1", "A2:C10")
-```
+# 1) 起止用单元格
+df.select_range(start='A2', end=('cell','C5'))
 
-#### `extract_table(file_path, sheet, start_cell)`
-自动检测表格边界
+# 2) 起始用行、终止到表尾；列为默认
+df.select_range(start_row=('row', 10), end_row='end')
 
-```python
-# 从A1开始自动检测表格
-result = xlgrab.extract_table("data.xlsx", "Sheet1", "A1")
-```
+# 3) 列用 Excel 列字母，行用整数（1 基）
+df.select_range(start_col='B', end_col='F', start_row=2, end_row=20)
 
-#### `extract_list(file_path, sheet, column, start_row)`
-提取单列列表数据
-
-```python
-# 提取A列从第2行开始的数据
-result = xlgrab.extract_list("data.xlsx", "Sheet1", "A", 2)
-```
-
-### 高级用法
-
-#### 锚点提取
-通过文本查找区域
-
-```python
-# 在A列找"姓名"，向下偏移1行
-spec = xlgrab.anchor_spec("Sheet1", "A", "姓名", 1, (1, 0))
-result = xlgrab.extract("data.xlsx", [spec])
-```
-
-#### 多区域提取
-一次提取多个区域
-
-```python
-specs = [
-    xlgrab.range_spec("Sheet1", "A1:C5"),
-    xlgrab.range_spec("Sheet1", "A7:C10"),
-    xlgrab.anchor_spec("Sheet1", "A", "总计", 1, (1, 0))
-]
-result = xlgrab.extract("data.xlsx", specs)
-```
-
-### 结果处理
-
-```python
-result = xlgrab.extract_simple("data.xlsx", "Sheet1", "A1:C10")
-
-# 获取数据
-data = result.data          # List[List[Any]]
-columns = result.columns    # List[str]
-errors = result.errors      # List[str]
-
-# 转换为其他格式
-df = result.to_dataframe()  # pandas DataFrame
-dict_list = result.to_dict()  # List[Dict[str, Any]]
-```
-
-## 🔧 区域语法
-
-### 固定区域
-- `"A1:C10"` - 从A1到C10
-- `"A1:last"` - 从A1到最后一行
-- `"A1:lastcol"` - 从A1到最后一列
-- `"A1:lastlast"` - 从A1到最后一行最后一列
-
-### 锚点区域
-```python
-xlgrab.anchor_spec(sheet, column, text, occurrence, offset)
-```
-
-- `sheet`: 工作表名称
-- `column`: 搜索列（如"A", "B"）
-- `text`: 要查找的文本
-- `occurrence`: 第几次出现（默认1）
-- `offset`: 偏移量 (行偏移, 列偏移)
-
-## 📝 使用示例
-
-### 示例1: 提取员工信息表
-
-```python
-import xlgrab
-
-# 提取员工信息（表头+数据）
-result = xlgrab.extract_with_header(
-    "employees.xlsx", 
-    "Sheet1", 
-    "A1:D1",  # 表头：姓名、年龄、部门、工资
-    "A2:D100" # 数据行
+# 4) 用 find 指定 4 个边界（可独立配置 mode/nth/na/flags）
+df.select_range(
+    start_row=('find-row', 'name', 'Alice', {'mode': 'exact', 'nth': 1}),
+    end_row=('find-row', 'name', 'Eve', {'mode': 'exact', 'nth': 1}),
+    start_col=('find-col', 0, 'age', {'mode': 'exact'}),
+    end_col=('find-col', 0, 'salary', {'mode': 'exact'})
 )
 
-# 转换为DataFrame进行分析
-df = result.to_dataframe()
-print(df.head())
-print(df.describe())
-```
+# 5) 偏移：统一偏移行+1列-1，并自动裁剪
+df.select_range(start='A2', end=('cell','C5'), offset_rows=1, offset_cols=-1, clip=True)
 
-### 示例2: 提取多个报表
-
-```python
-# 提取多个报表区域
-specs = [
-    xlgrab.range_spec("Q1报表", "A1:F20"),
-    xlgrab.range_spec("Q2报表", "A1:F20"),
-    xlgrab.anchor_spec("Q3报表", "A", "Q3数据", 1, (1, 0))
-]
-
-result = xlgrab.extract("reports.xlsx", specs)
-```
-
-### 示例3: 提取列表数据
-
-```python
-# 提取产品名称列表
-products = xlgrab.extract_list("products.xlsx", "Sheet1", "A", 2)
-product_names = [row[0] for row in products.data]
-```
-
-## 🎨 设计优势
-
-### 相比传统方式
-
-**传统方式（复杂）:**
-```python
-# 需要理解多个概念：Rule, HeaderSpec, BlockSpec, AnchorSpec...
-rule = Rule(
-    rule_id="emp1",
-    sheet_name="Sheet1", 
-    header=HeaderSpec(header_range="A1:D1"),
-    blocks=[BlockSpec(type="fixed", range_a1="A2:D100")]
+# 6) 偏移：分别偏移（起始行+1，结束行+2，起始列-1，结束列不变）
+df.select_range(
+    start='A2', end=('cell','C5'),
+    offset_start_row=1, offset_end_row=2,
+    offset_start_col=-1, offset_end_col=0,
 )
-result = extract_file("data.xlsx", [rule])
 ```
 
-**xlgrab（极简）:**
-```python
-# 直接表达意图
-result = xlgrab.extract_with_header("data.xlsx", "Sheet1", "A1:D1", "A2:D100")
+### apply_header(header, header_join="_")
+- 与 pandas read_csv 语义保持一致：
+  - True/0/1...：使用指定“0 基”行作为表头
+  - [i, j, ...]：多行表头；`header_join=None` 生成 MultiIndex，否则用分隔符合并
+  - list[str]/tuple/Series：直接作为列名（自动规范化、重复名递增 `_1/_2/...`）
+  - DataFrame：外部多行表头来源
+
+规范化规则：替换常见特殊字符为下划线；合并连续下划线；去除首尾下划线。
+
+## 测试
+
+```bash
+python -m unittest tests/test_apply_header.py -v
 ```
 
-### 核心优势
+或运行全部用例：
 
-1. **学习成本低** - 5分钟上手
-2. **代码简洁** - 减少90%的样板代码
-3. **功能强大** - 支持所有常见场景
-4. **易于测试** - 纯函数，无副作用
-5. **向后兼容** - 保留底层函数
-
-## 🔄 迁移指南
-
-如果你在使用旧版本，可以这样迁移：
-
-```python
-# 旧版本
-from xlgrab.api import extract_file
-from xlgrab.models import Rule, HeaderSpec, BlockSpec
-
-# 新版本
-import xlgrab
-
-# 旧版本复杂调用
-rule = Rule(
-    rule_id="data1",
-    sheet_name="Sheet1",
-    header=HeaderSpec(header_range="A1:C1"),
-    blocks=[BlockSpec(type="fixed", range_a1="A2:C10")]
-)
-result = extract_file("data.xlsx", [rule])
-
-# 新版本简单调用
-result = xlgrab.extract_with_header("data.xlsx", "Sheet1", "A1:C1", "A2:C10")
+```bash
+python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-## 📄 许可证
+## 依赖
+
+- pandas >= 1.3.0
+- numpy >= 1.20.0
+- openpyxl >= 3.0.0（使用 excel_range 时需要）
+
+## 许可证
 
 MIT License
-
-## 🤝 贡献
-
-欢迎提交Issue和Pull Request！
-
----
-
-**xlgrab** - 让Excel数据提取变得简单 ✨
