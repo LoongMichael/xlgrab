@@ -495,7 +495,11 @@ class XlDataFrame(_OriginalDataFrame):
         """
         # 通用：构造清洗与去重函数
         def _safe_name(val: Any) -> str:
-            val = re.sub(r'[-:/\\()\[\].,;:：；（）()【】{}·\s]', '_', str(val))
+            val = str(val)
+            # 如果为空字符串或只包含空白字符，返回空字符串（后续会由_dedup_names处理）
+            if not val or val.isspace():
+                return ""
+            val = re.sub(r'[-:/\\()\[\].,;:：；（）()【】{}·\s]', '_', val)
             val = re.sub(r'_+', '_', val)
             val = val.strip('_')
             return val
@@ -504,34 +508,59 @@ class XlDataFrame(_OriginalDataFrame):
             seen: Dict[str, int] = {}
             result: List[str] = []
             for name in names:
-                base = name
-                count = seen.get(base, 0)
-                if count == 0:
-                    result.append(base)
+                # 如果为空字符串，使用占位列名
+                if not name:
+                    base = "_"
+                    count = seen.get(base, 0)
+                    if count == 0:
+                        result.append(f"{base}1")  # 第一个空字符串变成 _1
+                    else:
+                        result.append(f"{base}{count + 1}")  # 后续变成 _2, _3, ...
+                    seen[base] = count + 1
                 else:
-                    result.append(f"{base}_{count}")
-                seen[base] = count + 1
+                    base = name
+                    count = seen.get(base, 0)
+                    if count == 0:
+                        result.append(base)
+                    else:
+                        result.append(f"{base}_{count}")
+                    seen[base] = count + 1
             return result
 
+        def _generate_placeholder_names(num_cols: int) -> List[str]:
+            """生成占位列名 N_1, N_2, N_3, ..."""
+            return [f"N_{i+1}" for i in range(num_cols)]
+
         # 1) header 为列表[str]/Series：直接作为列名
-        if (isinstance(header, (list, tuple, pd.Series)) and
-            len(header) > 0 and not isinstance(next(iter(header)), (int, np.integer))):
-            names = list(header)
-            if len(names) != len(self.columns):
-                raise ValueError(f"提供的列名数量为 {len(names)}，与 DataFrame 列数 {len(self.columns)} 不一致")
-            cleaned = [_safe_name(x) for x in names]
-            cleaned = _dedup_names(cleaned)
-            out = self.copy()
-            out.columns = cleaned
-            out.reset_index(drop=True, inplace=True)
-            return out
+        if isinstance(header, (list, tuple, pd.Series)):
+            # 检查是否为空或非整数类型
+            is_empty = len(header) == 0
+            is_non_integer = len(header) > 0 and not isinstance(next(iter(header)), (int, np.integer))
+            if is_empty or is_non_integer:
+                names = list(header)
+                # 如果列表为空，使用占位列名
+                if len(names) == 0:
+                    names = _generate_placeholder_names(len(self.columns))
+                elif len(names) != len(self.columns):
+                    raise ValueError(f"提供的列名数量为 {len(names)}，与 DataFrame 列数 {len(self.columns)} 不一致")
+                cleaned = [_safe_name(x) for x in names]
+                cleaned = _dedup_names(cleaned)
+                out = self.copy()
+                out.columns = cleaned
+                out.reset_index(drop=True, inplace=True)
+                return out
 
         # 2) header 为 DataFrame：按多行表头合并
         if isinstance(header, pd.DataFrame):
             header_block = header.astype("string")
             n = len(header_block)
+            # 如果DataFrame为空，使用占位列名
             if n < 1:
-                raise ValueError("header DataFrame 不能为空")
+                out = self.copy()
+                placeholder_names = _generate_placeholder_names(len(self.columns))
+                out.columns = placeholder_names
+                out.reset_index(drop=True, inplace=True)
+                return out
             # 从当前 df 全量返回（不丢行），仅重命名
             out = self.copy()
             arrays = [header_block.iloc[i].tolist() for i in range(n)]

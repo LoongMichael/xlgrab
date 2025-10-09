@@ -1,13 +1,13 @@
 ## xlgrab
 
-一个基于 Facade 模式的 pandas 增强库。导入后，DataFrame/Series 将自动获得一组易用、贴近 Excel 思维的辅助方法，专注于“快速定位与提取数据区域”。
+一个基于 Facade 模式的 pandas 增强库。通过 pandas Accessor（df.xl）提供一组贴近 Excel 思维的辅助方法，专注于“快速定位与提取数据区域”。默认不替换 pandas 类，稳定、无导入顺序依赖。
 
 ### 亮点
-- **一行导入，方法即刻可用**：`import xlgrab` 后，`pd.DataFrame`/`pd.Series` 直接获得增强方法
-- **查找定位**：`find_idx` 支持 exact/contains/regex、nth 指定、返回单个或全部命中
-- **Excel 区间**：`excel_range('B2:D6', ...)`，可一次传多个区间并纵向合并
-- **偏移选择**：`offset_range`/`select_range` 支持统一/分别偏移与边界裁剪
-- **表头处理**：`apply_header` 与 pandas read_csv 语义一致（支持 int、list[int]、list[str]/Series、DataFrame）
+- **Accessor 方式稳定可用**：`import xlgrab` 后可直接使用 `df.xl.*`，不依赖导入顺序
+- **查找定位**：`df.xl.find_idx(...)` 支持 exact/contains/regex、nth 指定、返回单个或全部命中
+- **Excel 区间**：`df.xl.excel_range('B2:D6', ...)`，可一次传多个区间并纵向合并
+- **偏移选择**：`df.xl.offset_range`/`df.xl.select_range` 支持统一/分别偏移与边界裁剪
+- **表头处理**：`df.xl.apply_header` 与 pandas read_csv 语义一致（支持 int、list[int]、list[str]/Series、DataFrame）
 
 ## 安装
 
@@ -70,12 +70,12 @@ pip install -i https://pypi.tuna.tsinghua.edu.cn/simple git+https://github.com/L
 
 ```python
 import pandas as pd
-import xlgrab  # 导入后会为 pandas 注册扩展方法
+import xlgrab  # 导入后可使用 df.xl.*
 
 df = pd.DataFrame({"name": ["Alice", "Bob"], "age": [25, 30]})
 
 # 若安装成功，下行方法应可调用且无 AttributeError
-_ = df.find_idx('name', 'Alice', mode='exact', axis='column', nth=1)
+_ = df.xl.find_idx('name', 'Alice', mode='exact', axis='column', nth=1)
 print('xlgrab OK')
 ```
 
@@ -83,7 +83,7 @@ print('xlgrab OK')
 
 ```python
 import pandas as pd
-import xlgrab  # 导入后自动为 pandas 注册扩展方法
+import xlgrab
 
 df = pd.DataFrame({
     'name': ['Alice', 'Bob', 'Charlie', 'David', 'Eve'],
@@ -93,26 +93,41 @@ df = pd.DataFrame({
 })
 
 # 查找位置（按列）
-df.find_idx('name', 'Alice', mode='exact', axis='column', nth=1)     # 0
-df.find_idx('dept', 'IT', mode='exact', axis='column', nth=None)      # array([0, 2])
+df.xl.find_idx('name', 'Alice', mode='exact', axis='column', nth=1)     # 0
+df.xl.find_idx('dept', 'IT', mode='exact', axis='column', nth=None)      # array([0, 2])
 
 # 查找位置（按行）
-df.find_idx(0, '^A', mode='regex', axis='row', nth=1)                 # 0
+df.xl.find_idx(0, '^A', mode='regex', axis='row', nth=1)                 # 0
 
 # Excel 区间到 DataFrame，支持多区域合并
-df.excel_range('B2:D4', 'F10:H12', header=True)
+df.xl.excel_range('B2:D4', 'F10:H12', header=True)
 
 # 偏移选择（以 1 基行列坐标）
-df.offset_range(1, 5, 2, 6, offset_rows=1, offset_cols=-1, clip_to_bounds=True)
+df.xl.offset_range(1, 5, 2, 6, offset_rows=1, offset_cols=-1, clip_to_bounds=True)
 
 # DSL 选择 + 偏移（先解析，再调用 offset_range 执行切片）
-df.select_range(start='A2', end=('cell','C5'), offset_rows=1, offset_cols=0, clip=True)
+df.xl.select_range(start='A2', end=('cell','C5'), offset_rows=1, offset_cols=0, clip=True)
 
 # 表头设置（read_csv 语义）
-df.apply_header(True)            # True 等价 0 行作为表头
-df.apply_header(0)               # 第 0 行为表头
-df.apply_header([0, 1])          # 多行表头；header_join=None 则生成 MultiIndex
-df.apply_header(['客户', '金额', '日期'])  # 直接用给定列表命名（自动规范化、递增去重）
+df.xl.apply_header(True)            # True 等价 0 行作为表头
+df.xl.apply_header(0)               # 第 0 行为表头
+df.xl.apply_header([0, 1])          # 多行表头；header_join=None 则生成 MultiIndex
+df.xl.apply_header(['客户', '金额', '日期'])  # 直接用给定列表命名（自动规范化、递增去重）
+```
+
+### 可选：启用直呼 df.excel_range（非默认）
+
+若你更喜欢不带 accessor 的直呼形式，可在进程启动后手动启用（不替换 pandas 类，仅挂载方法）：
+
+```python
+import pandas as pd
+import xlgrab
+from xlgrab.accessors import enable_direct_methods
+
+enable_direct_methods()
+
+df = pd.DataFrame({"A":[1,2,3], "B":[4,5,6]})
+df.excel_range('A1:B2')
 ```
 
 ## 核心 API
