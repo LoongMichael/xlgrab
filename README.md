@@ -214,14 +214,26 @@ df.select_range(
 )
 ```
 
-### apply_header(header, header_join="_")
+### apply_header(header, header_join="_", inplace=False)
 - 与 pandas read_csv 语义保持一致：
-  - True/0/1...：使用指定“0 基”行作为表头
+  - True/0/1...：使用指定"0 基"行作为表头
   - [i, j, ...]：多行表头；`header_join=None` 生成 MultiIndex，否则用分隔符合并
   - list[str]/tuple/Series：直接作为列名（自动规范化、重复名递增 `_1/_2/...`）
   - DataFrame：外部多行表头来源
+- **inplace 参数**：
+  - `inplace=False`（默认）：返回新的 DataFrame，不修改原 DataFrame
+  - `inplace=True`：直接修改原 DataFrame，返回 None
 
 规范化规则：替换常见特殊字符为下划线；合并连续下划线；去除首尾下划线。
+
+**使用示例**：
+```python
+# 默认行为：返回新 DataFrame
+new_df = df.xl.apply_header(['A', 'B', 'C'])
+
+# 直接修改原 DataFrame
+df.xl.apply_header(['A', 'B', 'C'], inplace=True)
+```
 
 ## 测试
 

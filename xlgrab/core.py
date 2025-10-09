@@ -481,6 +481,7 @@ class XlDataFrame(_OriginalDataFrame):
         self,
         header: Union[bool, int, List[int], List[str], pd.DataFrame, pd.Series] = True,
         header_join: Optional[str] = "_",
+        inplace: bool = False,
     ):
         """
         使用本 DataFrame 顶部若干行作为列名。
@@ -489,9 +490,11 @@ class XlDataFrame(_OriginalDataFrame):
           - header: True 表示首行；整数 N 表示前 N 行；False 返回拷贝不做处理
           - header_join: 当 N>1 时，若提供分隔符则将多行头按分隔符合并为单层列；
                          否则生成 MultiIndex 多级列
+          - inplace: 是否直接修改原 DataFrame，默认为 False
 
         返回：
-          - 处理后的 DataFrame（不修改原 DataFrame）
+          - 如果 inplace=True，返回 None（直接修改原 DataFrame）
+          - 如果 inplace=False，返回处理后的新 DataFrame
         """
         # 通用：构造清洗与去重函数
         def _safe_name(val: Any) -> str:
@@ -543,8 +546,13 @@ class XlDataFrame(_OriginalDataFrame):
                     names = _generate_placeholder_names(len(self.columns))
                 elif len(names) != len(self.columns):
                     raise ValueError(f"提供的列名数量为 {len(names)}，与 DataFrame 列数 {len(self.columns)} 不一致")
-                cleaned = [_safe_name(x) for x in names]
-                cleaned = _dedup_names(cleaned)
+            cleaned = [_safe_name(x) for x in names]
+            cleaned = _dedup_names(cleaned)
+            if inplace:
+                self.columns = cleaned
+                self.reset_index(drop=True, inplace=True)
+                return None
+            else:
                 out = self.copy()
                 out.columns = cleaned
                 out.reset_index(drop=True, inplace=True)
@@ -556,33 +564,47 @@ class XlDataFrame(_OriginalDataFrame):
             n = len(header_block)
             # 如果DataFrame为空，使用占位列名
             if n < 1:
-                out = self.copy()
                 placeholder_names = _generate_placeholder_names(len(self.columns))
-                out.columns = placeholder_names
-                out.reset_index(drop=True, inplace=True)
-                return out
+                if inplace:
+                    self.columns = placeholder_names
+                    self.reset_index(drop=True, inplace=True)
+                    return None
+                else:
+                    out = self.copy()
+                    out.columns = placeholder_names
+                    out.reset_index(drop=True, inplace=True)
+                    return out
             # 从当前 df 全量返回（不丢行），仅重命名
-            out = self.copy()
             arrays = [header_block.iloc[i].tolist() for i in range(n)]
             if header_join is None:
                 tuples = [tuple(items) for items in zip(*arrays)]
-                out.columns = pd.MultiIndex.from_tuples(tuples)
+                new_columns = pd.MultiIndex.from_tuples(tuples)
+            else:
+                # 合并为单层列
+                new_headers: List[str] = []
+                for col_idx, items in enumerate(zip(*arrays)):
+                    values = [x for x in items if pd.notna(x)]
+                    unique_ordered = list(dict.fromkeys(values))
+                    merged = header_join.join(map(str, unique_ordered)) if unique_ordered else str(self.columns[col_idx])
+                    new_headers.append(_safe_name(merged))
+                new_columns = _dedup_names(new_headers)
+            
+            if inplace:
+                self.columns = new_columns
+                self.reset_index(drop=True, inplace=True)
+                return None
+            else:
+                out = self.copy()
+                out.columns = new_columns
                 out.reset_index(drop=True, inplace=True)
                 return out
-            # 合并为单层列
-            new_headers: List[str] = []
-            for col_idx, items in enumerate(zip(*arrays)):
-                values = [x for x in items if pd.notna(x)]
-                unique_ordered = list(dict.fromkeys(values))
-                merged = header_join.join(map(str, unique_ordered)) if unique_ordered else str(out.columns[col_idx])
-                new_headers.append(_safe_name(merged))
-            out.columns = _dedup_names(new_headers)
-            out.reset_index(drop=True, inplace=True)
-            return out
 
         # 3) header 为 False：不处理
         if header is False:
-            return self.copy()
+            if inplace:
+                return None
+            else:
+                return self.copy()
 
         # 4) 与 pandas read_csv 语义对齐：
         #    - header=True 等价于 header=0（使用第0行做表头）
@@ -612,7 +634,12 @@ class XlDataFrame(_OriginalDataFrame):
                     new_headers.append(_safe_name(merged))
                 data_block.columns = _dedup_names(new_headers)
             data_block.reset_index(drop=True, inplace=True)
-            return data_block
+            if inplace:
+                # 对于多行表头，需要替换整个 DataFrame
+                self.__init__(data_block)
+                return None
+            else:
+                return data_block
 
         # 单行表头：int
         if isinstance(header, (int, np.integer)):
@@ -624,7 +651,12 @@ class XlDataFrame(_OriginalDataFrame):
             new_cols = [ _safe_name(x) for x in hdr.tolist() ]
             data_block.columns = _dedup_names(new_cols)
             data_block.reset_index(drop=True, inplace=True)
-            return data_block
+            if inplace:
+                # 对于单行表头，需要替换整个 DataFrame
+                self.__init__(data_block)
+                return None
+            else:
+                return data_block
 
         # 其余类型不支持
         raise ValueError("不支持的 header 类型。支持: False/True/int/list[int]/list[str]/Series/DataFrame")
