@@ -8,6 +8,7 @@
 - **Excel 区间**：`df.xl.excel_range('B2:D6', ...)`，可一次传多个区间并纵向合并
 - **偏移选择**：`df.xl.offset_range`/`df.xl.select_range` 支持统一/分别偏移与边界裁剪
 - **表头处理**：`df.xl.apply_header` 与 pandas read_csv 语义一致（支持 int、list[int]、list[str]/Series、DataFrame）
+- **合并单元格处理**：`xlgrab.unmerge_excel()` 解开Excel合并单元格并填充值
 
 ## 安装
 
@@ -114,6 +115,10 @@ df.xl.apply_header(True)            # True 等价 0 行作为表头
 df.xl.apply_header(0)               # 第 0 行为表头
 df.xl.apply_header([0, 1])          # 多行表头；header_join=None 则生成 MultiIndex
 df.xl.apply_header(['客户', '金额', '日期'])  # 直接用给定列表命名（自动规范化、递增去重）
+
+# 合并单元格处理
+xlgrab.unmerge_excel("input.xlsx", "output.xlsx")  # 处理并保存到新文件
+xlgrab.unmerge_excel("input.xlsx")                 # 直接覆盖原文件
 ```
 
 ### 可选：启用直呼 df.excel_range（非默认）
@@ -235,6 +240,34 @@ new_df = df.xl.apply_header(['A', 'B', 'C'])
 # 直接修改原 DataFrame
 df.xl.apply_header(['A', 'B', 'C'], inplace=True)
 ```
+
+### unmerge_excel(file_path, output_path=None)
+- **功能**：解开Excel文件中的所有合并单元格并填充值
+- **file_path**：输入Excel文件路径
+- **output_path**：输出Excel文件路径，如果为None则覆盖原文件
+- **依赖**：需要安装 `openpyxl >= 3.0.0`
+
+**使用示例**：
+```python
+import xlgrab
+
+# 处理文件并保存到新文件
+xlgrab.unmerge_excel("input.xlsx", "output.xlsx")
+
+# 直接覆盖原文件
+xlgrab.unmerge_excel("input.xlsx")
+
+# 处理多个文件
+files = ["file1.xlsx", "file2.xlsx", "file3.xlsx"]
+for file in files:
+    xlgrab.unmerge_excel(file)
+```
+
+**注意事项**：
+- 函数会解开所有工作表中的合并单元格
+- 合并单元格的值会填充到所有相关单元格中
+- 不保持原有格式，只处理数据值
+- 需要确保有足够的磁盘空间保存输出文件
 
 ## 测试
 

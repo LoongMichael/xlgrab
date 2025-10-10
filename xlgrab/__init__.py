@@ -28,5 +28,6 @@ __all__ = [
     'XlDataFrame', 
     'XlSeries', 
     'register_extensions',
-    'enable_direct_methods'
+    'enable_direct_methods',
+    'unmerge_excel'
 ]
