@@ -1,15 +1,17 @@
-## offset_range 使用手册
+# offset_range - 偏移范围选择
 
-以 1 基行列坐标选择一个区域，并在选择后应用统一或分别的偏移；可选择自动裁剪。
+## 功能说明
 
-### 签名
+`offset_range` 用于以 1 基行列坐标选择一个区域，并在选择后应用统一或分别的偏移。支持自动裁剪到边界，提供灵活的范围选择功能。
+
+## 函数签名
 
 ```python
-df.offset_range(start_row, end_row, start_col, end_col,
-                offset_rows=0, offset_cols=0,
-                offset_start_row=None, offset_end_row=None,
-                offset_start_col=None, offset_end_col=None,
-                clip_to_bounds=False)
+df.xl.offset_range(start_row, end_row, start_col, end_col,
+                   offset_rows=0, offset_cols=0,
+                   offset_start_row=None, offset_end_row=None,
+                   offset_start_col=None, offset_end_col=None,
+                   clip_to_bounds=False)
 ```
 
 ### 参数要点

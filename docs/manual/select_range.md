@@ -1,15 +1,17 @@
-## select_range 使用手册（区间 DSL）
+# select_range - DSL风格区间选择
 
-统一表达单元格、行/列、查找端点与偏移，内部最终复用 `offset_range` 执行切片。
+## 功能说明
 
-### 签名
+`select_range` 提供强大的区间 DSL（领域特定语言），统一表达单元格、行/列、查找端点与偏移。内部最终复用 `offset_range` 执行切片，提供灵活且直观的数据选择方式。
+
+## 函数签名
 
 ```python
-df.select_range(*, start=None, end=None, start_row=None, end_row=None, start_col=None, end_col=None,
-                clip=True,
-                offset_rows=0, offset_cols=0,
-                offset_start_row=None, offset_end_row=None,
-                offset_start_col=None, offset_end_col=None)
+df.xl.select_range(*, start=None, end=None, start_row=None, end_row=None, start_col=None, end_col=None,
+                   clip=True,
+                   offset_rows=0, offset_cols=0,
+                   offset_start_row=None, offset_end_row=None,
+                   offset_start_col=None, offset_end_col=None)
 ```
 
 ### 端点规范

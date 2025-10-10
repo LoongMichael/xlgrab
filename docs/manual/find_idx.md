@@ -1,17 +1,21 @@
-## find_idx 使用手册
+# find_idx - 数据查找功能
 
-查找位置（按列或按行），支持三种模式与第 n 次命中选择。
+## 功能说明
 
-### 签名（DataFrame）
+`find_idx` 是 xlgrab 的核心查找功能，支持在 DataFrame 和 Series 中查找数据位置。提供三种匹配模式，支持按列或按行查找，可以指定查找第几次匹配。
+
+## 函数签名
+
+### DataFrame 版本
 
 ```python
-df.find_idx(target, q, mode='exact', na=False, nth=1, axis='column')
+df.xl.find_idx(target, q, mode='exact', na=False, nth=1, axis='column')
 ```
 
-### 签名（Series）
+### Series 版本
 
 ```python
-s.find_idx(q, mode='exact', na=False, nth=1)
+s.xl.find_idx(q, mode='exact', na=False, nth=1)
 ```
 
 ### 参数

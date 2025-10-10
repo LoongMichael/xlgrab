@@ -1,11 +1,13 @@
-## apply_header 使用手册
+# apply_header - 表头处理
 
-将顶部若干行作为表头，规则与 pandas read_csv 语义一致，并提供列名清洗与重复名递增。
+## 功能说明
 
-### 签名
+`apply_header` 用于将 DataFrame 顶部若干行作为表头，规则与 pandas read_csv 语义一致。提供列名清洗与重复名递增功能，支持多种表头格式。
+
+## 函数签名
 
 ```python
-df.apply_header(header=True, header_join="_")
+df.xl.apply_header(header=True, header_join="_", inplace=False)
 ```
 
 ### 参数

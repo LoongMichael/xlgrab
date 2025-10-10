@@ -1,11 +1,13 @@
-## excel_range 使用手册
+# excel_range - Excel区间操作
 
-用 Excel 区间（如 `B2:D6`）切出 DataFrame 子区域，支持一次传多个区间并纵向合并。
+## 功能说明
 
-### 签名
+`excel_range` 用于从 DataFrame 中提取 Excel 风格的数据区间。支持一次传入多个区间并自动纵向合并，可以处理表头和索引列。
+
+## 函数签名
 
 ```python
-df.excel_range(*ranges, header=True, index_col=None)
+df.xl.excel_range(*ranges, header=True, index_col=None)
 ```
 
 ### 参数

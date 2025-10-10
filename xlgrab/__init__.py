@@ -11,8 +11,8 @@ from .accessors import enable_direct_methods  # re-export optional helper
 # 导入扩展注册
 from .extensions import register_extensions
 
-# 导入工具函数
-from .utils import *
+# 导入Excel功能
+from .excel import unmerge_excel, unmerge_sheet, read_excel
 
 # 默认不替换 pandas 类，改为通过 pandas Accessor 暴露功能：
 # df.xl.excel_range / s.xl.find_idx 等。
@@ -30,5 +30,6 @@ __all__ = [
     'register_extensions',
     'enable_direct_methods',
     'unmerge_excel',
-    'unmerge_sheet'
+    'unmerge_sheet',
+    'read_excel'
 ]
