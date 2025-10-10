@@ -47,25 +47,36 @@ def unmerge_excel(file_path: str, output_path: Optional[str] = None) -> None:
         # 获取所有合并单元格范围
         merged_ranges = list(worksheet.merged_cells.ranges)
         
-        # 处理每个合并单元格
+        # 先收集所有合并单元格的信息
+        merge_info = []
         for merged_range in merged_ranges:
             min_row, min_col, max_row, max_col = merged_range.bounds
-            
-            # 获取合并单元格的值
             value = worksheet.cell(min_row, min_col).value
-            
-            # 取消合并（使用范围字符串）
+            merge_info.append({
+                'range': str(merged_range),
+                'bounds': (min_row, min_col, max_row, max_col),
+                'value': value
+            })
+        
+        # 取消所有合并单元格
+        for info in merge_info:
             try:
-                worksheet.unmerge_cells(str(merged_range))
+                worksheet.unmerge_cells(info['range'])
             except ValueError:
                 # 如果合并单元格已经不存在，跳过
                 continue
+        
+        # 填充所有单元格
+        for info in merge_info:
+            min_row, min_col, max_row, max_col = info['bounds']
+            value = info['value']
             
-            # 填充所有单元格
             if value is not None:
                 for row in range(min_row, max_row + 1):
                     for col in range(min_col, max_col + 1):
-                        worksheet.cell(row, col).value = value
+                        # 使用 cell() 方法获取或创建单元格
+                        cell = worksheet.cell(row, col)
+                        cell.value = value
     
     # 保存文件
     workbook.save(output_path)
