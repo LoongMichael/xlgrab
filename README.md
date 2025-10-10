@@ -241,32 +241,45 @@ new_df = df.xl.apply_header(['A', 'B', 'C'])
 df.xl.apply_header(['A', 'B', 'C'], inplace=True)
 ```
 
-### unmerge_excel(file_path, output_path=None)
+### unmerge_excel(file_path, output_path=None, sheet_names=None, copy_style=True, verbose=False)
 - **功能**：解开Excel文件中的所有合并单元格并填充值
-- **file_path**：输入Excel文件路径
-- **output_path**：输出Excel文件路径，如果为None则覆盖原文件
+- **file_path**：输入Excel文件路径或文件路径列表
+- **output_path**：输出Excel文件路径或路径列表，如果为None则覆盖原文件
+- **sheet_names**：要处理的工作表名称或名称列表，None表示处理所有工作表
+- **copy_style**：是否复制单元格格式（数字格式、数据类型等），默认True
+- **verbose**：是否显示详细处理信息，默认False
 - **依赖**：需要安装 `openpyxl >= 3.0.0`
 
 **使用示例**：
 ```python
 import xlgrab
 
-# 处理文件并保存到新文件
-xlgrab.unmerge_excel("input.xlsx", "output.xlsx")
+# 1. 处理单个文件的所有工作表
+result = xlgrab.unmerge_excel("input.xlsx", "output.xlsx")
 
-# 直接覆盖原文件
-xlgrab.unmerge_excel("input.xlsx")
+# 2. 处理单个文件的指定工作表
+result = xlgrab.unmerge_excel("input.xlsx", "output.xlsx", sheet_names="Sheet1")
+result = xlgrab.unmerge_excel("input.xlsx", "output.xlsx", sheet_names=["Sheet1", "Sheet2"])
 
-# 处理多个文件
+# 3. 批量处理多个文件
 files = ["file1.xlsx", "file2.xlsx", "file3.xlsx"]
-for file in files:
-    xlgrab.unmerge_excel(file)
+result = xlgrab.unmerge_excel(files)
+
+# 4. 批量处理并指定输出路径
+result = xlgrab.unmerge_excel(files, ["out1.xlsx", "out2.xlsx", "out3.xlsx"])
+
+# 5. 显示详细处理信息
+result = xlgrab.unmerge_excel("input.xlsx", "output.xlsx", verbose=True)
+
+# 6. 不复制格式，只复制值
+result = xlgrab.unmerge_excel("input.xlsx", "output.xlsx", copy_style=False)
 ```
 
 **注意事项**：
 - 函数会解开所有工作表中的合并单元格
 - 合并单元格的值会填充到所有相关单元格中
-- 不保持原有格式，只处理数据值
+- 默认会保持数字格式和数据类型（`copy_style=True`）
+- 如果只需要复制值，可以设置 `copy_style=False`
 - 需要确保有足够的磁盘空间保存输出文件
 
 ## 测试

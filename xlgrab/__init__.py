@@ -29,5 +29,6 @@ __all__ = [
     'XlSeries', 
     'register_extensions',
     'enable_direct_methods',
-    'unmerge_excel'
+    'unmerge_excel',
+    'unmerge_sheet'
 ]
