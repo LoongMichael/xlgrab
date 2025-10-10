@@ -54,8 +54,13 @@ def unmerge_excel(file_path: str, output_path: Optional[str] = None) -> None:
             # 获取合并单元格的值
             value = worksheet.cell(min_row, min_col).value
             
-            # 取消合并
-            worksheet.unmerge_cells()
+            # 取消合并（传递具体的范围参数）
+            worksheet.unmerge_cells(
+                start_row=min_row, 
+                start_column=min_col, 
+                end_row=max_row, 
+                end_column=max_col
+            )
             
             # 填充所有单元格
             if value is not None:
