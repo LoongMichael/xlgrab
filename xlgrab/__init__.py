@@ -8,6 +8,9 @@ from .core import XlDataFrame, XlSeries, _OriginalDataFrame, _OriginalSeries
 # 导入 accessor 注册（替代直接替换类）
 from .accessors import enable_direct_methods  # re-export optional helper
 
+# 导入扩展注册
+from .extensions import register_extensions
+
 # 导入工具函数
 from .utils import *
 
@@ -25,15 +28,5 @@ __all__ = [
     'XlDataFrame', 
     'XlSeries', 
     'register_extensions',
-    'create_sample_data',
-    'detect_data_types',
-    'memory_usage_analysis',
-    'find_duplicates',
-    'outlier_detection',
-    'data_quality_report',
-    'smart_encoding',
-    'feature_importance_analysis',
-    'time_series_decomposition',
-    'cross_validation_split',
-    'export_to_multiple_formats'
+    'enable_direct_methods'
 ]

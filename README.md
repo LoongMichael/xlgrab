@@ -22,6 +22,7 @@ pip install git+https://github.com/LoongMichael/xlgrab.git
 如需升级到仓库的最新提交：
 
 ```bash
+pip uninstall -y xlgrab
 pip install --upgrade --no-cache-dir git+https://github.com/LoongMichael/xlgrab.git
 ```
 

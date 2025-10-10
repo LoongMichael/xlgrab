@@ -335,7 +335,7 @@ class XlDataFrame(_OriginalDataFrame):
                     na = opts.get("na", False)
                     flags = opts.get("flags", 0)
                     nth = opts.get("nth", 1)
-                    pos = self.find_idx(target, q, mode=mode, na=na, flags=flags, nth=nth, axis="column")
+                    pos = XlDataFrame.find_idx(self, target, q, mode=mode, na=na, flags=flags, nth=nth, axis="column")
                     if isinstance(pos, np.ndarray):
                         pos = int(pos[0]) if pos.size > 0 else -1
                     return None if pos is None or pos < 0 else int(pos)
@@ -377,7 +377,7 @@ class XlDataFrame(_OriginalDataFrame):
                     na = opts.get("na", False)
                     flags = opts.get("flags", 0)
                     nth = opts.get("nth", 1)
-                    pos = self.find_idx(target, q, mode=mode, na=na, flags=flags, nth=nth, axis="row")
+                    pos = XlDataFrame.find_idx(self, target, q, mode=mode, na=na, flags=flags, nth=nth, axis="row")
                     if isinstance(pos, np.ndarray):
                         pos = int(pos[0]) if pos.size > 0 else -1
                     return None if pos is None or pos < 0 else int(pos)
@@ -460,7 +460,7 @@ class XlDataFrame(_OriginalDataFrame):
             col_start_idx, col_end_idx = col_end_idx, col_start_idx
 
         # 复用 offset_range 执行偏移与切片
-        return self.offset_range(
+        return XlDataFrame.offset_range(self,
             start_row=row_start_idx + 1,
             end_row=row_end_idx + 1,
             start_col=col_start_idx + 1,
@@ -481,7 +481,7 @@ class XlDataFrame(_OriginalDataFrame):
         self,
         header: Union[bool, int, List[int], List[str], pd.DataFrame, pd.Series] = True,
         header_join: Optional[str] = "_",
-        inplace: bool = False,
+        inplace: bool = True,
     ):
         """
         使用本 DataFrame 顶部若干行作为列名。
@@ -560,6 +560,7 @@ class XlDataFrame(_OriginalDataFrame):
 
         # 2) header 为 DataFrame：按多行表头合并
         if isinstance(header, pd.DataFrame):
+            header.ffill(axis=1, inplace=True)
             header_block = header.astype("string")
             n = len(header_block)
             # 如果DataFrame为空，使用占位列名
@@ -699,7 +700,10 @@ class XlDataFrame(_OriginalDataFrame):
         if isinstance(target, int) and axis == "column":
             if 0 <= target < len(self.columns):
                 column_name = self.columns[target]
-                return self[column_name].find_idx(q, mode=mode, na=na, flags=flags, nth=nth)
+                column_data = self[column_name]
+                if not isinstance(column_data, XlSeries):
+                    column_data = XlSeries(column_data)
+                return column_data.find_idx(q, mode=mode, na=na, flags=flags, nth=nth)
             else:
                 # 列索引越界时回退为按行搜索
                 axis = "row"
@@ -708,7 +712,10 @@ class XlDataFrame(_OriginalDataFrame):
             # 按列搜索
             if target not in self.columns:
                 raise ValueError(f"列 '{target}' 不存在")
-            return self[target].find_idx(q, mode=mode, na=na, flags=flags, nth=nth)
+            column_data = self[target]
+            if not isinstance(column_data, XlSeries):
+                column_data = XlSeries(column_data)
+            return column_data.find_idx(q, mode=mode, na=na, flags=flags, nth=nth)
         
         elif axis == "row":
             # 按行搜索 - 复用Series的find_idx方法
