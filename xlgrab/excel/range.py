@@ -28,18 +28,25 @@ def excel_range(
     将Excel数据区间转换为DataFrame的数据区间，支持多个区域合并
     
     参数：
-      - *ranges: Excel数据区间，支持多个区域，如 'B2:D6' 或 'B2:D6,K9:L11,K13:L15'
+      - *ranges: Excel数据区间，支持单个单元格（如 'B2'）或区域（如 'B2:D6'），
+                也支持多个区域，如 'B2:D6,K9:L11,K13:L15'
       - header: 是否将第一行作为列名
       - index_col: 指定作为索引的列（列名或列索引）
     
     返回：
       - DataFrame: 转换后的DataFrame
     
+    注意：
+      - 如果请求的区域超出DataFrame的实际范围，会自动裁剪到有效边界并发出警告
+      - 起始位置必须在有效范围内，否则会抛出错误
+    
     示例：
+      df.excel_range('B2')  # 获取B2单元格的数据
       df.excel_range('B2:D6')  # 获取B2到D6的数据
       df.excel_range('A1:C5', header=True)  # 第一行作为列名
       df.excel_range('A1:C5', header=True, index_col=0)  # 第一列作为索引
       df.excel_range('B2:D6', 'K9:L11', 'K13:L15')  # 合并多个区域
+      df.excel_range('B2:Z1000')  # 如果超出范围，自动裁剪到实际最大行列
     """
     if not ranges:
         raise ValueError("至少需要提供一个Excel区间")
@@ -92,11 +99,19 @@ def excel_range(
 
 
 def _parse_excel_range(df, range_str: str):
-    """解析Excel区间字符串，如 'B2:D6'"""
+    """解析Excel区间字符串，如 'B2:D6' 或单个单元格 'B2'
+    
+    如果请求的区域超出 DataFrame 的实际范围，会自动裁剪到有效边界。
+    """
     if not OPENPYXL_AVAILABLE:
         raise ImportError("需要安装 openpyxl 库来解析Excel区间")
     
     try:
+        # 检查是否是单个单元格（不包含冒号）
+        if ':' not in range_str:
+            # 单个单元格，转换为范围格式 "B2:B2"
+            range_str = f"{range_str}:{range_str}"
+        
         # 使用openpyxl解析区间
         from openpyxl.utils import range_boundaries
         min_col, min_row, max_col, max_row = range_boundaries(range_str)
@@ -107,12 +122,31 @@ def _parse_excel_range(df, range_str: str):
         start_col_idx = min_col - 1
         end_col_idx = max_col - 1
         
-        # 检查边界
-        if start_row_idx < 0 or end_row_idx >= len(df):
-            raise ValueError(f"行索引超出范围: {min_row}-{max_row}，DataFrame只有{len(df)}行")
+        # 获取 DataFrame 的实际边界
+        df_max_row = len(df) - 1
+        df_max_col = len(df.columns) - 1
         
-        if start_col_idx < 0 or end_col_idx >= len(df.columns):
-            raise ValueError(f"列索引超出范围: {min_col}-{max_col}，DataFrame只有{len(df.columns)}列")
+        # 检查起始位置是否完全超出范围
+        if start_row_idx > df_max_row or start_col_idx > df_max_col:
+            raise ValueError(f"起始位置超出范围: 请求行{min_row}列{min_col}，但DataFrame只有{len(df)}行{len(df.columns)}列")
+        
+        if start_row_idx < 0 or start_col_idx < 0:
+            raise ValueError(f"起始位置无效: 行{min_row}列{min_col}必须大于0")
+        
+        # 自动裁剪结束位置到有效范围
+        original_end_row = end_row_idx
+        original_end_col = end_col_idx
+        
+        end_row_idx = min(end_row_idx, df_max_row)
+        end_col_idx = min(end_col_idx, df_max_col)
+        
+        # 如果发生了裁剪，发出警告
+        if end_row_idx < original_end_row or end_col_idx < original_end_col:
+            warnings.warn(
+                f"请求的区域超出DataFrame范围，已自动裁剪: "
+                f"请求到第{max_row}行第{max_col}列，实际返回到第{end_row_idx+1}行第{end_col_idx+1}列",
+                UserWarning
+            )
         
         # 获取数据区间
         # Excel区间是包含边界的，所以需要+1
