@@ -12,6 +12,7 @@
 - **表头处理**：`df.xl.apply_header` 与 pandas read_csv 语义一致（支持 int、list[int]、list[str]/Series、DataFrame）
 - **Excel 文件操作**：`xlgrab.unmerge_excel()` 解开Excel合并单元格并填充值
 - **范围读取**：`xlgrab.read_excel()` 读取Excel文件的指定范围数据
+- **数据写入**：`xlgrab.write_to_excel()` 向现有Excel文件写入数据，支持指定位置和追加模式
 
 ## 安装
 
@@ -126,6 +127,10 @@ xlgrab.unmerge_excel("input.xlsx")                 # 直接覆盖原文件
 # Excel 范围读取
 df = xlgrab.read_excel("data.xlsx", ranges="A1:C10")
 dfs = xlgrab.read_excel("data.xlsx", ranges=["A1:C10", "E1:G10"])
+
+# Excel 数据写入
+xlgrab.write_to_excel(df, "output.xlsx", start_row=1, start_col=1, header=True)
+xlgrab.write_range_to_excel([['数据1', '数据2']], "output.xlsx", start_row=5, start_col=3)
 ```
 
 ### 可选：启用直呼 df.excel_range（非默认）
@@ -297,6 +302,86 @@ result = xlgrab.unmerge_excel("input.xlsx", "output.xlsx", copy_style=False)
 - 如果只需要复制值，可以设置 `copy_style=False`
 - 需要确保有足够的磁盘空间保存输出文件
 
+#### write_to_excel(df, excel_name, sheet_name=0, start_row=1, start_col=1, end_row=None, end_col=None, overwrite=False, header=True, index=False)
+- **功能**：向现有Excel文件的指定位置写入DataFrame数据
+- **df**：要写入的DataFrame
+- **excel_name**：Excel文件路径
+- **sheet_name**：工作表名称或索引，默认为0（第一个工作表）
+- **start_row**：起始行位置（从1开始），默认1
+- **start_col**：起始列位置（从1开始），默认1
+- **end_row**：结束行位置（从1开始），如果为None则自动计算
+- **end_col**：结束列位置（从1开始），如果为None则自动计算
+- **overwrite**：是否覆盖现有数据，默认False（追加模式）
+- **header**：是否写入列名，默认True
+- **index**：是否写入行索引，默认False
+- **依赖**：需要安装 `openpyxl >= 3.0.0`
+
+**使用示例**：
+```python
+import pandas as pd
+import xlgrab
+
+# 1. 创建新Excel文件并写入DataFrame
+df = pd.DataFrame({'姓名': ['张三', '李四'], '年龄': [25, 30]})
+xlgrab.write_to_excel(df, "test.xlsx", start_row=1, start_col=1, header=True)
+
+# 2. 在现有Excel文件中追加数据
+df2 = pd.DataFrame({'部门': ['技术部', '销售部'], '人数': [10, 15]})
+xlgrab.write_to_excel(df2, "test.xlsx", start_row=4, start_col=1, header=True)
+
+# 3. 写入到指定工作表
+df3 = pd.DataFrame({'产品': ['产品A', '产品B'], '价格': [100, 200]})
+xlgrab.write_to_excel(df3, "test.xlsx", sheet_name="产品信息", start_row=1, start_col=1)
+
+# 4. 在指定位置写入数据（不写入列名）
+df4 = pd.DataFrame({'A': [1, 2], 'B': [3, 4]})
+xlgrab.write_to_excel(df4, "test.xlsx", start_row=2, start_col=6, header=False, index=False)
+
+# 5. 覆盖模式写入
+df5 = pd.DataFrame({'新列1': ['X', 'Y'], '新列2': [100, 200]})
+xlgrab.write_to_excel(df5, "test.xlsx", start_row=1, start_col=8, end_row=2, end_col=9, overwrite=True)
+```
+
+**注意事项**：
+- 如果Excel文件不存在，会自动创建新文件
+- 如果工作表不存在，会自动创建新工作表
+- 默认追加模式，不会覆盖现有数据
+- 支持写入列名和行索引
+- 自动处理DataFrame尺寸与目标区域的匹配
+
+#### write_range_to_excel(data, excel_name, sheet_name=0, start_row=1, start_col=1, end_row=None, end_col=None)
+- **功能**：向Excel文件的指定范围写入数据（简化版本）
+- **data**：要写入的数据，可以是DataFrame、列表或元组
+- **excel_name**：Excel文件路径
+- **sheet_name**：工作表名称或索引
+- **start_row**：起始行位置（从1开始）
+- **start_col**：起始列位置（从1开始）
+- **end_row**：结束行位置（从1开始）
+- **end_col**：结束列位置（从1开始）
+- **依赖**：需要安装 `openpyxl >= 3.0.0`
+
+**使用示例**：
+```python
+import xlgrab
+
+# 1. 写入列表数据
+data = [['项目1', '进行中'], ['项目2', '已完成'], ['项目3', '计划中']]
+xlgrab.write_range_to_excel(data, "test.xlsx", start_row=1, start_col=1)
+
+# 2. 写入DataFrame（不包含列名和索引）
+df = pd.DataFrame({'A': [1, 2], 'B': [3, 4]})
+xlgrab.write_range_to_excel(df, "test.xlsx", sheet_name="Sheet2")
+
+# 3. 写入到指定位置
+xlgrab.write_range_to_excel([['数据1', '数据2']], "test.xlsx", start_row=5, start_col=3)
+```
+
+**注意事项**：
+- 自动将输入数据转换为DataFrame格式
+- 不写入列名和行索引，只写入纯数据
+- 使用覆盖模式，会替换目标区域的数据
+- 适合快速写入简单数据
+
 #### read_excel(file_path, sheet_name=0, ranges=None, engine='openpyxl', merge_ranges=False, **kwargs)
 - **功能**：读取Excel文件的指定范围数据
 - **file_path**：Excel文件路径
@@ -350,6 +435,7 @@ xlgrab/
 ├── excel/               # Excel专用功能
 │   ├── merger.py       # 合并单元格处理
 │   ├── reader.py       # 范围读取
+│   ├── writer.py       # 数据写入
 │   └── range.py        # 范围操作
 │
 └── data/                # 数据操作
