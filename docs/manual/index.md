@@ -18,6 +18,7 @@
 ### Excel 文件操作
 - **unmerge_excel**：解开Excel合并单元格并填充值
 - **read_excel**：读取Excel文件的指定范围数据
+- **to_sheet_many / write_to_excel**：高效写入现有 Excel 文件
 
 ## 文档索引
 
@@ -33,6 +34,7 @@
 ### Excel 文件操作
 - [unmerge_excel.md](./unmerge_excel.md) - 合并单元格处理
 - [read_excel.md](./read_excel.md) - 范围读取
+- [write_excel.md](./write_excel.md) - 写入（推荐使用 to_sheet_many）
 
 ## 架构说明
 
