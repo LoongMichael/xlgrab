@@ -121,35 +121,31 @@ def _perform_write(df: pd.DataFrame, excel_name: str, sheet_name: Union[str, int
                    end_row: Optional[int], end_col: Optional[int], overwrite: bool, header: bool, index: bool,
                    merge_policy: MergePolicy, _workbook: Optional[openpyxl.Workbook], _save: bool) -> None:
     """包含所有写入逻辑的内部函数。"""
-    df_rows, df_cols = len(df), len(df.columns)
-    if end_row is None: end_row = start_row + df_rows - 1
-    if end_col is None: end_col = start_col + df_cols - 1
-    if end_row < start_row or end_col < start_col: raise ValueError("end_row/end_col不能小于start_row/start_col")
-
-    wb = _workbook or _open_or_create_workbook(excel_name)
-    ws = _get_or_create_worksheet(wb, sheet_name)
-
-    # --- 合并单元格处理 ---
-    _handle_merged_cells(ws, start_row, end_row, start_col, end_col, merge_policy)
-
-    required_rows, required_cols = end_row - start_row + 1, end_col - start_col + 1
-    if not overwrite and (df_rows > required_rows or df_cols > required_cols):
-        warnings.warn(f"DataFrame尺寸({df_rows}x{df_cols})大于目标区域({required_rows}x{required_cols})，数据将被截断。", UserWarning)
-
-    if df_rows != required_rows or df_cols != required_cols:
-        df = df.iloc[:required_rows, :required_cols]
-        if df.shape != (required_rows, required_cols): df = df.reindex(index=range(required_rows), columns=range(required_cols))
-
+    # 1. 准备写入数据，并确定最终写入的行数和列数
     data_to_write = df.values.tolist()
     if header and not df.empty:
         col_names = [f"Column_{i}" for i in df.columns] if isinstance(df.columns, pd.RangeIndex) else df.columns.tolist()
-        data_to_write = [col_names] + data_to_write
+        data_to_write.insert(0, col_names)
     if index and not df.empty:
         row_names = [f"Row_{i}" for i in df.index] if isinstance(df.index, pd.RangeIndex) else df.index.tolist()
+        # 为 header 行的索引位置留空
+        if header: row_names.insert(0, None) 
         for i, row in enumerate(data_to_write):
-            if header and i == 0: data_to_write[i] = [None] + row
-            else: data_to_write[i] = [(row_names[i - 1] if header else row_names[i])] + row
+            data_to_write[i].insert(0, row_names[i])
 
+    final_rows = len(data_to_write)
+    final_cols = len(data_to_write[0]) if final_rows > 0 else 0
+
+    # 2. 确定最终写入区域，并处理合并单元格
+    write_end_row = start_row + final_rows - 1
+    write_end_col = start_col + final_cols - 1
+
+    wb = _workbook or _open_or_create_workbook(excel_name)
+    ws = _get_or_create_worksheet(wb, sheet_name)
+    _handle_merged_cells(ws, start_row, write_end_row, start_col, write_end_col, merge_policy)
+
+    # 3. 写入数据 (注意：当前版本忽略了 end_row, end_col, overwrite 的截断逻辑，因为这与 unmerge 逻辑冲突)
+    #    后续可以优化为先 unmerge，再根据截断后的尺寸写入
     cell_set = ws.cell
     for i, row in enumerate(data_to_write):
         r = start_row + i
@@ -160,13 +156,14 @@ def _perform_write(df: pd.DataFrame, excel_name: str, sheet_name: Union[str, int
 
 def _handle_merged_cells(ws: openpyxl.worksheet.worksheet.Worksheet, start_row: int, end_row: int, start_col: int, end_col: int, policy: MergePolicy):
     """根据策略处理与写入区域重叠的合并单元格。"""
-    # 使用 copy 是因为 unmerge_cells 会修改列表
+    if not (hasattr(ws, 'merged_cells') and ws.merged_cells.ranges):
+        return
+
+    # 必须复制，因为 unmerge_cells 会修改原始集合
     merged_ranges = list(ws.merged_cells.ranges)
-    if not merged_ranges: return
 
     overlapping_ranges = []
     for m_range in merged_ranges:
-        # 检查合并区域与写入区域是否有重叠
         if not (m_range.max_row < start_row or m_range.min_row > end_row or
                 m_range.max_col < start_col or m_range.min_col > end_col):
             overlapping_ranges.append(m_range)
@@ -178,15 +175,14 @@ def _handle_merged_cells(ws: openpyxl.worksheet.worksheet.Worksheet, start_row: 
     
     if policy == 'unmerge':
         for m_range in overlapping_ranges:
+            # unmerge_cells 可能会在某些 openpyxl 版本中对已移除的 range 抛出 KeyError
             try:
                 ws.unmerge_cells(str(m_range))
             except KeyError:
-                # openpyxl 在某些情况下 unmerge 后会再次尝试 unmerge 内部的单元格，可能导致KeyError
-                # 这个问题可以安全地忽略
                 pass
 
 def _open_or_create_workbook(excel_name: str) -> openpyxl.Workbook:
-    try: return openpyxl.load_workbook(excel_name, data_only=True, read_only=False)
+    try: return openpyxl.load_workbook(excel_name, data_only=False, read_only=False)
     except FileNotFoundError:
         wb = openpyxl.Workbook()
         if 'Sheet' in wb.sheetnames: wb.remove(wb['Sheet'])
