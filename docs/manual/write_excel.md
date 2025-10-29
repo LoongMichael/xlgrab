@@ -10,8 +10,8 @@
 ## 接口概览
 
 - `to_sheet_many(tasks)`: **（推荐）** 自动按文件名分批，高效写入多个任务。
-- `write_to_excel(...)`: 写入单个 DataFrame，提供完整参数控制。
-- `write_range_to_excel(...)`: 写入二维列表/元组的简化函数。
+- `write_to_excel(..., merge_policy='unmerge')`: 写入单个 DataFrame，提供完整参数控制。
+- `write_range_to_excel(..., merge_policy='unmerge')`: 写入二维列表/元组的简化函数。
 
 ## 批量写入（推荐）
 
@@ -55,31 +55,23 @@ df = pd.DataFrame({"A": [1, 2, 3], "B": [4, 5, 6]})
 write_to_excel(df, "test.xlsx", sheet_name="Sheet1", start_row=2, start_col=2, header=True)
 ```
 
-## 写入二维数据
-
-快速写入列表或元组等纯数据。
-
-```python
-from xlgrab.excel.writer import write_range_to_excel
-
-data = [[1, 2, 3], [4, 5, 6]]
-write_range_to_excel(data, "test.xlsx", sheet_name="Matrix", start_row=2, start_col=2)
-```
-
 ## 参数说明（精简）
 
 - `excel_name`: 目标 Excel 文件路径（若不存在，将创建新文件）。
 - `sheet_name`: 工作表名或索引（0 表示第一个工作表）。
 - `start_row`/`start_col`: 起始行/列，均从 1 开始计数。
 - `header`/`index`: 是否写入列名/行索引（仅 `write_to_excel` 支持）。
+- `merge_policy`: 合并单元格处理策略 (默认为 `'unmerge'`)。
+  - `'unmerge'`: 在写入前自动取消与目标区域重叠的合并单元格（推荐）。
+  - `'error'`: 如果与合并单元格冲突，则抛出 `ValueError`。
 
 ## 使用建议与注意事项
 
 - **性能**：对于所有批量写入场景，请使用 `to_sheet_many` 以获得最佳性能。
+- **合并单元格**：默认情况下，写入函数会自动取消重叠的合并单元格以避免报错。您可以通过设置 `merge_policy='error'` 来禁用此行为。
 - **起始坐标**：所有坐标均从 1 开始计数，例如 B2 对应 `start_row=2, start_col=2`。
-- **合并单元格**：当前版本未对合并单元格做特殊处理。写入与合并单元格重叠的区域可能会导致非预期行为。
 
 ## 异常与提示
 
-- `ValueError`: 参数类型或起止行列非法时抛出。
+- `ValueError`: 参数类型、起止行列非法或与合并单元格冲突 (`merge_policy='error'`) 时抛出。
 - `UserWarning`: 当 DataFrame 尺寸大于目标区域导致数据被截断时，会给出提醒。
